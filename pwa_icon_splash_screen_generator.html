@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Icon & Splash Screen Generator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JSZip Library for Archive Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* Mobile Device Frame styling */
+        .device-frame {
+            border: 12px solid #1e293b;
+            border-radius: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            position: relative;
+            overflow: hidden;
+        }
+        .device-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 24px;
+            background-color: #1e293b;
+            border-bottom-left-radius: 14px;
+            border-bottom-right-radius: 14px;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-emerald-500 to-teal-400 p-2.5 rounded-xl text-slate-950 font-bold flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">PWA Asset Studio</h1>
+                    <p class="text-xs text-slate-400">Icons, Splash Screens & Manifest Generator</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button id="downloadZipBtn" onclick="generateZipPackage()" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition shadow-lg shadow-emerald-600/25">
+                    <i class="fa-solid fa-file-zipper"></i>
+                    <span>Export PWA Assets (.zip)</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Left Column: Controls & Configuration (4 Cols) -->
+        <section class="lg:col-span-4 space-y-6">
+            
+            <!-- File Upload Box -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i>
+                    1. Source Logo
+                </h2>
+
+                <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-emerald-500 bg-slate-950/60 hover:bg-slate-950 rounded-xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center relative group">
+                    <input type="file" id="logoInput" accept="image/svg+xml,image/png,image/jpeg" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+                    <div class="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-emerald-500/10 group-hover:text-emerald-400 flex items-center justify-center text-slate-400 text-xl transition mb-3">
+                        <i class="fa-solid fa-image"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-200">Click or drag logo here</p>
+                    <p class="text-xs text-slate-500 mt-1">Supports SVG, PNG, JPG (SVG recommended)</p>
+                </div>
+
+                <div id="fileInfo" class="mt-3 hidden text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg flex items-center justify-between">
+                    <span id="fileName" class="truncate font-mono">logo.svg</span>
+                    <button onclick="resetDefaultLogo()" class="text-slate-400 hover:text-white ml-2"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <!-- Customization Options -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-5">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-emerald-400"></i>
+                    2. Icon Customization
+                </h2>
+
+                <!-- Background Color -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">Background Color</label>
+                    <div class="flex items-center gap-3">
+                        <input type="color" id="bgColor" value="#0f172a" class="w-10 h-10 rounded-lg bg-transparent border-0 cursor-pointer">
+                        <input type="text" id="bgColorText" value="#0f172a" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono uppercase text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <button onclick="setTransparentBg()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs text-slate-300 transition">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Theme Color (for Splash Screen) -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1.5">PWA Theme Color</label>
+                    <div class="flex items-center gap-3">
+                        <input type="color" id="themeColor" value="#22c55e" class="w-10 h-10 rounded-lg bg-transparent border-0 cursor-pointer">
+                        <input type="text" id="themeColorText" value="#22c55e" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono uppercase text-slate-200 focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+
+                <!-- Padding Slider -->
+                <div>
+                    <div class="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
+                        <span>Logo Padding</span>
+                        <span id="paddingVal" class="text-emerald-400 font-mono">15%</span>
+                    </div>
+                    <input type="range" id="paddingRange" min="0" max="40" value="15" class="w-full accent-emerald-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Corner Radius Slider -->
+                <div>
+                    <div class="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
+                        <span>Corner Radius</span>
+                        <span id="radiusVal" class="text-emerald-400 font-mono">20%</span>
+                    </div>
+                    <input type="range" id="radiusRange" min="0" max="50" value="20" class="w-full accent-emerald-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <!-- Maskable Icon Toggle -->
+                <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                    <div>
+                        <span class="text-xs font-medium text-slate-200 block">Safe Zone Guide</span>
+                        <span class="text-[11px] text-slate-500 block">Overlay Android Maskable safe zone circle</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="maskableToggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- App Metadata for Code Generator -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-gears text-emerald-400"></i>
+                    3. App Metadata
+                </h2>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">App Title</label>
+                    <input type="text" id="appNameInput" value="My Awesome PWA" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Short Name</label>
+                    <input type="text" id="appShortNameInput" value="AwesomeApp" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Previews & Code Generator (8 Cols) -->
+        <section class="lg:col-span-8 flex flex-col space-y-6">
+            
+            <!-- Navigation Tabs -->
+            <div class="flex items-center border-b border-slate-800 gap-4">
+                <button id="tabIconsBtn" onclick="switchTab('icons')" class="px-4 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-border-all"></i>
+                    <span>App Icons Grid</span>
+                </button>
+                <button id="tabSplashBtn" onclick="switchTab('splash')" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-mobile-screen"></i>
+                    <span>Splash Screen Preview</span>
+                </button>
+                <button id="tabCodeBtn" onclick="switchTab('code')" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-code"></i>
+                    <span>HTML & Manifest Code</span>
+                </button>
+            </div>
+
+            <!-- Tab 1: App Icons Grid -->
+            <div id="tabIcons" class="space-y-6">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <!-- Icon Card: Favicon 32x32 -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between text-center relative group">
+                        <span class="text-xs text-slate-400 font-mono mb-3">32x32 (Favicon)</span>
+                        <div class="w-20 h-20 bg-slate-950 rounded-xl flex items-center justify-center p-2 relative">
+                            <canvas id="canvas32" width="32" height="32" class="w-8 h-8 rounded-sm shadow-md"></canvas>
+                        </div>
+                        <span class="text-[11px] text-slate-500 mt-3">favicon-32x32.png</span>
+                    </div>
+
+                    <!-- Icon Card: Apple Touch Icon 180x180 -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between text-center relative group">
+                        <span class="text-xs text-slate-400 font-mono mb-3">180x180 (Apple)</span>
+                        <div class="w-24 h-24 bg-slate-950 rounded-2xl flex items-center justify-center p-2 relative">
+                            <canvas id="canvas180" width="180" height="180" class="w-20 h-20 rounded-xl shadow-md"></canvas>
+                        </div>
+                        <span class="text-[11px] text-slate-500 mt-3">apple-touch-icon.png</span>
+                    </div>
+
+                    <!-- Icon Card: Android 192x192 -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between text-center relative group">
+                        <span class="text-xs text-slate-400 font-mono mb-3">192x192 (Android)</span>
+                        <div class="w-28 h-28 bg-slate-950 rounded-2xl flex items-center justify-center p-2 relative">
+                            <canvas id="canvas192" width="192" height="192" class="w-24 h-24 rounded-2xl shadow-md"></canvas>
+                        </div>
+                        <span class="text-[11px] text-slate-500 mt-3">icon-192x192.png</span>
+                    </div>
+
+                    <!-- Icon Card: Android 512x512 -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between text-center relative group">
+                        <span class="text-xs text-slate-400 font-mono mb-3">512x512 (Splash/PWA)</span>
+                        <div class="w-32 h-32 bg-slate-950 rounded-2xl flex items-center justify-center p-2 relative">
+                            <canvas id="canvas512" width="512" height="512" class="w-28 h-28 rounded-2xl shadow-md"></canvas>
+                        </div>
+                        <span class="text-[11px] text-slate-500 mt-3">icon-512x512.png</span>
+                    </div>
+
+                    <!-- Icon Card: Maskable 512x512 -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between text-center relative group">
+                        <span class="text-xs text-slate-400 font-mono mb-3">Maskable 512x512</span>
+                        <div class="w-32 h-32 bg-slate-950 rounded-2xl flex items-center justify-center p-2 relative overflow-hidden">
+                            <canvas id="canvasMaskable" width="512" height="512" class="w-28 h-28 rounded-full shadow-md"></canvas>
+                        </div>
+                        <span class="text-[11px] text-slate-500 mt-3">icon-maskable-512.png</span>
+                    </div>
+
+                    <!-- Icon Card: Favicon ICO 16x16 -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col items-center justify-between text-center relative group">
+                        <span class="text-xs text-slate-400 font-mono mb-3">16x16 (Browser Favicon)</span>
+                        <div class="w-20 h-20 bg-slate-950 rounded-xl flex items-center justify-center p-2 relative">
+                            <canvas id="canvas16" width="16" height="16" class="w-6 h-6 rounded-sm shadow-md"></canvas>
+                        </div>
+                        <span class="text-[11px] text-slate-500 mt-3">favicon-16x16.png</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Splash Screen Interactive Device Preview -->
+            <div id="tabSplash" class="hidden flex-1 flex flex-col items-center justify-center py-6">
+                
+                <!-- Device Selector Switcher -->
+                <div class="flex items-center gap-3 mb-6 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                    <button onclick="setDevicePreview('iphone')" id="deviceIphoneBtn" class="px-4 py-2 text-xs font-medium rounded-lg bg-emerald-600 text-white transition">iPhone 15 Pro</button>
+                    <button onclick="setDevicePreview('ipad')" id="deviceIpadBtn" class="px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition">iPad Pro 11"</button>
+                    <button onclick="setDevicePreview('android')" id="deviceAndroidBtn" class="px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition">Android Pixel</button>
+                </div>
+
+                <!-- Mockup Container -->
+                <div id="deviceContainer" class="device-frame bg-slate-950 w-[300px] h-[600px] transition-all duration-300 flex flex-col items-center justify-between relative p-6">
+                    <div class="device-notch"></div>
+
+                    <!-- Top Spacer -->
+                    <div class="w-full pt-8 flex justify-between items-center text-xs text-slate-400 font-mono">
+                        <span>9:41</span>
+                        <div class="flex gap-1.5 items-center">
+                            <i class="fa-solid fa-signal"></i>
+                            <i class="fa-solid fa-wifi"></i>
+                            <i class="fa-solid fa-battery-full"></i>
+                        </div>
+                    </div>
+
+                    <!-- Splash Logo & Title Center -->
+                    <div class="flex flex-col items-center justify-center my-auto text-center space-y-4">
+                        <div class="w-28 h-28 flex items-center justify-center p-2">
+                            <canvas id="splashCanvas" width="512" height="512" class="w-full h-full object-contain rounded-2xl shadow-2xl"></canvas>
+                        </div>
+                        <div>
+                            <h3 id="splashTitlePreview" class="text-base font-bold text-white tracking-wide">My Awesome PWA</h3>
+                            <p class="text-xs text-slate-400 mt-1">Loading Application...</p>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Indicator -->
+                    <div class="w-32 h-1 bg-slate-700 rounded-full mb-1"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: HTML & Manifest Code Generator -->
+            <div id="tabCode" class="hidden space-y-6">
+                <!-- HTML <head> Tags Code Box -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-code text-emerald-400"></i>
+                            HTML &lt;head&gt; Meta & Link Tags
+                        </h3>
+                        <button onclick="copyCode('htmlCode')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy Snippet</span>
+                        </button>
+                    </div>
+                    <pre class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs font-mono text-emerald-300 overflow-x-auto"><code id="htmlCode">&lt;!-- PWA Icons --&gt;
+&lt;link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png"&gt;
+&lt;link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png"&gt;
+&lt;link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"&gt;
+&lt;link rel="manifest" href="/manifest.json"&gt;
+&lt;meta name="theme-color" content="#22c55e"&gt;
+&lt;meta name="apple-mobile-web-app-capable" content="yes"&gt;
+&lt;meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"&gt;</code></pre>
+                </div>
+
+                <!-- manifest.json Code Box -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-file-code text-emerald-400"></i>
+                            manifest.json Configuration
+                        </h3>
+                        <button onclick="copyCode('manifestCode')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>Copy JSON</span>
+                        </button>
+                    </div>
+                    <pre class="bg-slate-950 border border-slate-800 p-4 rounded-xl text-xs font-mono text-teal-300 overflow-x-auto"><code id="manifestCode">{
+  "name": "My Awesome PWA",
+  "short_name": "AwesomeApp",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#22c55e",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}</code></pre>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-900/50 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>100% Client-Side Processing — No images uploaded to any server.</p>
+            <p>Built for Web Developers & PWA Creators</p>
+        </div>
+    </footer>
+
+    <!-- Notification Toast Box -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-emerald-600 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 text-sm transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="toastMsg">Action completed successfully!</span>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // Default SVG Logo Template
+        const defaultSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+            <rect width="512" height="512" rx="120" fill="url(#paint0_linear)"/>
+            <path d="M256 120L360 224H296V360H216V224H152L256 120Z" fill="white"/>
+            <circle cx="256" cy="390" r="16" fill="white"/>
+            <defs>
+                <linearGradient id="paint0_linear" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+                    <stop stop-color="#22C55E"/>
+                    <stop offset="1" stop-color="#14532D"/>
+                </linearGradient>
+            </defs>
+        </svg>`;
+
+        let sourceImage = new Image();
+        let isLoaded = false;
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSVGString(defaultSVG);
+            setupEventListeners();
+        });
+
+        function loadSVGString(svgStr) {
+            const blob = new Blob([svgStr], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            sourceImage.crossOrigin = 'anonymous';
+            sourceImage.onload = () => {
+                isLoaded = true;
+                renderAllCanvases();
+                URL.revokeObjectURL(url);
+            };
+            sourceImage.src = url;
+        }
+
+        function setupEventListeners() {
+            // File Input Handlers
+            const logoInput = document.getElementById('logoInput');
+            logoInput.addEventListener('change', handleFileSelect);
+
+            // Drag and Drop
+            const dropZone = document.getElementById('dropZone');
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-emerald-500'); });
+            dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-emerald-500'); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-emerald-500');
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            // Control Inputs
+            document.getElementById('bgColor').addEventListener('input', (e) => {
+                document.getElementById('bgColorText').value = e.target.value;
+                renderAllCanvases();
+            });
+            document.getElementById('bgColorText').addEventListener('input', (e) => {
+                document.getElementById('bgColor').value = e.target.value;
+                renderAllCanvases();
+            });
+
+            document.getElementById('themeColor').addEventListener('input', (e) => {
+                document.getElementById('themeColorText').value = e.target.value;
+                updateCodePreviews();
+            });
+            document.getElementById('themeColorText').addEventListener('input', (e) => {
+                document.getElementById('themeColor').value = e.target.value;
+                updateCodePreviews();
+            });
+
+            document.getElementById('paddingRange').addEventListener('input', (e) => {
+                document.getElementById('paddingVal').textContent = e.target.value + '%';
+                renderAllCanvases();
+            });
+
+            document.getElementById('radiusRange').addEventListener('input', (e) => {
+                document.getElementById('radiusVal').textContent = e.target.value + '%';
+                renderAllCanvases();
+            });
+
+            document.getElementById('maskableToggle').addEventListener('change', () => {
+                renderAllCanvases();
+            });
+
+            document.getElementById('appNameInput').addEventListener('input', (e) => {
+                document.getElementById('splashTitlePreview').textContent = e.target.value || 'My Awesome PWA';
+                updateCodePreviews();
+            });
+            document.getElementById('appShortNameInput').addEventListener('input', () => {
+                updateCodePreviews();
+            });
+        }
+
+        function handleFileSelect(e) {
+            if (e.target.files && e.target.files[0]) {
+                handleFile(e.target.files[0]);
+            }
+        }
+
+        function handleFile(file) {
+            if (!file.type.match('image.*')) {
+                showToast('Please upload an image file (SVG, PNG, JPG).');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                sourceImage = new Image();
+                sourceImage.onload = () => {
+                    isLoaded = true;
+                    renderAllCanvases();
+                    document.getElementById('fileName').textContent = file.name;
+                    document.getElementById('fileInfo').classList.remove('hidden');
+                    showToast('Logo loaded successfully!');
+                };
+                sourceImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetDefaultLogo() {
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('logoInput').value = '';
+            loadSVGString(defaultSVG);
+        }
+
+        function setTransparentBg() {
+            document.getElementById('bgColor').value = '#000000';
+            document.getElementById('bgColorText').value = 'transparent';
+            renderAllCanvases(true);
+        }
+
+        // Canvas Rendering Engine
+        function renderCanvas(canvasId, size, isMaskable = false, forceTransparent = false) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !isLoaded) return;
+
+            const ctx = canvas.getContext('2d');
+            const paddingPercent = parseInt(document.getElementById('paddingRange').value) / 100;
+            const radiusPercent = parseInt(document.getElementById('radiusRange').value) / 100;
+            const bgColor = document.getElementById('bgColorText').value === 'transparent' ? null : document.getElementById('bgColor').value;
+            const isMaskableToggle = document.getElementById('maskableToggle').checked;
+
+            ctx.clearRect(0, 0, size, size);
+
+            // 1. Draw Background
+            if (bgColor && !forceTransparent) {
+                ctx.fillStyle = bgColor;
+                const radius = (size / 2) * radiusPercent;
+
+                if (radius > 0 && !isMaskable) {
+                    ctx.beginPath();
+                    ctx.moveTo(radius, 0);
+                    ctx.arcTo(size, 0, size, size, radius);
+                    ctx.arcTo(size, size, 0, size, radius);
+                    ctx.arcTo(0, size, 0, 0, radius);
+                    ctx.arcTo(0, 0, size, 0, radius);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(0, 0, size, size);
+                }
+            }
+
+            // 2. Calculate Logo Dimensions with Padding
+            const padding = size * paddingPercent;
+            const destWidth = size - (padding * 2);
+            const destHeight = size - (padding * 2);
+            const destX = padding;
+            const destY = padding;
+
+            ctx.drawImage(sourceImage, destX, destY, destWidth, destHeight);
+
+            // 3. Draw Maskable Safe Zone Overlay (If Enabled)
+            if (isMaskableToggle && (canvasId === 'canvasMaskable' || canvasId === 'canvas512')) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size * 0.4, 0, 2 * Math.PI);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function renderAllCanvases(forceTransparent = false) {
+            renderCanvas('canvas16', 16, false, forceTransparent);
+            renderCanvas('canvas32', 32, false, forceTransparent);
+            renderCanvas('canvas180', 180, false, forceTransparent);
+            renderCanvas('canvas192', 192, false, forceTransparent);
+            renderCanvas('canvas512', 512, false, forceTransparent);
+            renderCanvas('canvasMaskable', 512, true, forceTransparent);
+            renderCanvas('splashCanvas', 512, false, forceTransparent);
+
+            updateCodePreviews();
+        }
+
+        // Tab Navigation
+        function switchTab(tabName) {
+            document.getElementById('tabIcons').classList.add('hidden');
+            document.getElementById('tabSplash').classList.add('hidden');
+            document.getElementById('tabCode').classList.add('hidden');
+
+            document.getElementById('tabIconsBtn').className = "px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+            document.getElementById('tabSplashBtn').className = "px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+            document.getElementById('tabCodeBtn').className = "px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+
+            if (tabName === 'icons') {
+                document.getElementById('tabIcons').classList.remove('hidden');
+                document.getElementById('tabIconsBtn').className = "px-4 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400 transition";
+            } else if (tabName === 'splash') {
+                document.getElementById('tabSplash').classList.remove('hidden');
+                document.getElementById('tabSplashBtn').className = "px-4 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400 transition";
+            } else if (tabName === 'code') {
+                document.getElementById('tabCode').classList.remove('hidden');
+                document.getElementById('tabCodeBtn').className = "px-4 py-3 text-sm font-medium border-b-2 border-emerald-500 text-emerald-400 transition";
+            }
+        }
+
+        // Device Preview Switcher
+        function setDevicePreview(device) {
+            const container = document.getElementById('deviceContainer');
+            const iphoneBtn = document.getElementById('deviceIphoneBtn');
+            const ipadBtn = document.getElementById('deviceIpadBtn');
+            const androidBtn = document.getElementById('deviceAndroidBtn');
+
+            iphoneBtn.className = "px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition";
+            ipadBtn.className = "px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition";
+            androidBtn.className = "px-4 py-2 text-xs font-medium rounded-lg text-slate-400 hover:text-white transition";
+
+            if (device === 'iphone') {
+                container.style.width = '300px';
+                container.style.height = '600px';
+                iphoneBtn.className = "px-4 py-2 text-xs font-medium rounded-lg bg-emerald-600 text-white transition";
+            } else if (device === 'ipad') {
+                container.style.width = '460px';
+                container.style.height = '580px';
+                ipadBtn.className = "px-4 py-2 text-xs font-medium rounded-lg bg-emerald-600 text-white transition";
+            } else if (device === 'android') {
+                container.style.width = '320px';
+                container.style.height = '640px';
+                androidBtn.className = "px-4 py-2 text-xs font-medium rounded-lg bg-emerald-600 text-white transition";
+            }
+        }
+
+        // Code Generation Updates
+        function updateCodePreviews() {
+            const appName = document.getElementById('appNameInput').value || 'My Awesome PWA';
+            const shortName = document.getElementById('appShortNameInput').value || 'AwesomeApp';
+            const themeColor = document.getElementById('themeColorText').value || '#22c55e';
+            const bgColor = document.getElementById('bgColorText').value || '#0f172a';
+
+            const htmlCode = `<!-- PWA Icons & Meta Tags -->
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="${themeColor}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`;
+
+            const manifestCode = `{
+  "name": "${appName}",
+  "short_name": "${shortName}",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "${bgColor}",
+  "theme_color": "${themeColor}",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}`;
+
+            document.getElementById('htmlCode').textContent = htmlCode;
+            document.getElementById('manifestCode').textContent = manifestCode;
+        }
+
+        // Copy Code Helper
+        function copyCode(elementId) {
+            const codeText = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(codeText).then(() => {
+                showToast('Code copied to clipboard!');
+            });
+        }
+
+        // ZIP Export Generator
+        async function generateZipPackage() {
+            const zip = new JSZip();
+            const btn = document.getElementById('downloadZipBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing...`;
+
+            try {
+                // Canvas Assets to Export
+                const assets = [
+                    { id: 'canvas16', name: 'favicon-16x16.png' },
+                    { id: 'canvas32', name: 'favicon-32x32.png' },
+                    { id: 'canvas180', name: 'apple-touch-icon.png' },
+                    { id: 'canvas192', name: 'icon-192x192.png' },
+                    { id: 'canvas512', name: 'icon-512x512.png' },
+                    { id: 'canvasMaskable', name: 'icon-maskable-512.png' }
+                ];
+
+                // Append PNG Blobs to ZIP
+                for (const asset of assets) {
+                    const canvas = document.getElementById(asset.id);
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const base64Data = dataUrl.replace(/^data:image\/png;base64,/, '');
+                    zip.file(asset.name, base64Data, { base64: true });
+                }
+
+                // Append Manifest.json & HTML Snippet
+                const manifestText = document.getElementById('manifestCode').textContent;
+                const htmlSnippet = document.getElementById('htmlCode').textContent;
+
+                zip.file('manifest.json', manifestText);
+                zip.file('pwa-head-tags.html', htmlSnippet);
+
+                // Generate Archive Blob
+                const content = await zip.generateAsync({ type: 'blob' });
+                
+                // Trigger Browser Download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(content);
+                downloadLink.download = 'pwa-assets.zip';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                showToast('PWA Assets .zip downloaded successfully!');
+            } catch (error) {
+                console.error(error);
+                showToast('Failed to generate ZIP archive.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> <span>Export PWA Assets (.zip)</span>`;
+            }
+        }
+
+        // Toast Helper
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            toastMsg.textContent = message;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
